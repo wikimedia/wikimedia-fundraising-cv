@@ -13,17 +13,47 @@ Requirements
 Download
 ========
 
-`cv` is distributed in PHAR format, which is a portable executable file (for PHP). It should run on most Unix-like systems where PHP 5.4+ is installed.
+`cv` is distributed in PHAR format, which is a portable executable file (for PHP). It should run on most Unix-like systems where PHP is installed.
+Here are three quick ways to download it:
 
-Simply download [`cv`](https://download.civicrm.org/cv/cv.phar) and put it somewhere in the PATH, eg
+* Download [the latest release of `cv.phar`](https://download.civicrm.org/cv/cv.phar) (*[SHA256](https://download.civicrm.org/cv/cv.SHA256SUMS),
+  [GPG](https://download.civicrm.org/cv/cv.phar.asc)*) and put it in the PATH. For example:
 
-```bash
-sudo curl -LsS https://download.civicrm.org/cv/cv.phar -o /usr/local/bin/cv
-sudo chmod +x /usr/local/bin/cv
-```
+    ```bash
+    sudo curl -LsS https://download.civicrm.org/cv/cv.phar -o /usr/local/bin/cv
+    sudo chmod +x /usr/local/bin/cv
+    ```
 
-> __Need PHP 5.3?__: The last version to support PHP v5.3 was [cv v0.1.32](https://download.civicrm.org/cv/cv.phar-2018-01-11-8dd41af7).
-> Please note that the current version of `civicrm-core` no longer supports PHP v5.3.
+    (*Learn more: [Install `cv.phar` as system-wide tool (Linux/BSD/macOS)](doc/download.md#phar-unix)*)
+
+* Or... add `cv` and other CiviCRM tools to a composer project (Drupal 9/10/11)
+
+    ```bash
+    composer require civicrm/cli-tools
+    ```
+
+    (*Learn more: [Install `cv.phar` as project tool (composer)](doc/download.md#phar-composer)*)
+
+* Or... use [phar.io's `phive` installer](https://phar.io/) to download, validate, and cache the `cv.phar` file.
+
+    ```bash
+    phive install civicrm/cv
+    ```
+
+    (*Learn more: [Install `cv.phar` as project tool (phive)](doc/download.md#phar-phive)*)
+
+There are several more options for downloading `cv`. See also:
+
+* [Download URLs for alternate versions](doc/download.md#urls)
+* [Comparison of install options](doc/download.md#comparison)
+* Install `cv` as a system-wide/standalone tool
+    * [Install `cv.phar` (binary) as system-wide tool (Linux/BSD/macOS)](doc/download.md#phar-unix)
+    * [Install `cv.git` (source) as standalone project (Linux/BSD/macOS)](doc/download.md#src-unix)
+    * [Install `cv.git` (source) as standalone project (Windows)](doc/download.md#src-win)
+* Install `cv` as a tool within another project
+    * [Install `cv.phar` (binary) as project tool (composer)](doc/download.md#phar-composer)
+    * [Install `cv.phar` (binary) as project tool (phive)](doc/download.md#phar-phive)
+    * [Install `cv.git` (source) as project tool (composer)](doc/download.md#src-composer)
 
 Documentation
 =============
@@ -44,18 +74,43 @@ Example: CLI
 
 ```bash
 me@localhost$ cd /var/www/my/web/site
-me@localhost$ cv vars:show
-me@localhost$ cv scr /path/to/throwaway.php
-me@localhost$ cv ev 'echo Civi::paths()->getPath("[civicrm.root]/.");'
-me@localhost$ cv ev 'echo Civi::paths()->getUrl("[civicrm.root]/.");'
-me@localhost$ cv url civicrm/dashboard --open
-me@localhost$ cv api contact.get last_name=Smith
+
+## Clear caches
+me@localhost$ cv flush
+
+## Manage extensions
+me@localhost$ cv ext -Li
 me@localhost$ cv dl cividiscount
 me@localhost$ cv en cividiscount
 me@localhost$ cv dis cividiscount
-me@localhost$ cv debug:container
-me@localhost$ cv debug:event-dispatcher
-me@localhost$ cv flush
+me@localhost$ cv path -x cividiscount
+me@localhost$ cv url -x cividiscount
+
+## Manage settings
+me@localhost$ cv vget
+me@localhost$ cv vget /mail/
+me@localhost$ cv vset mailerBatchLimit=100
+
+## Call APIs
+me@localhost$ cv api3 contact.get last_name=Smith
+me@localhost$ cv api4 Contact.get +w last_name=Smith
+
+## Improvise PHP
+me@localhost$ cv ev 'echo Civi::paths()->getPath("[civicrm.root]/.");'
+me@localhost$ cv scr /path/to/my-script.php
+me@localhost$ cv cli
+
+## Improvise web requests
+me@localhost$ cv url civicrm/dashboard --open
+me@localhost$ cv url civicrm/dashboard --open -LU admin
+me@localhost$ cv http civicrm/dashboard
+me@localhost$ cv http civicrm/dashboard -LU admin
+
+## Inspect events and services
+me@localhost$ cv event
+me@localhost$ cv event /flexmailer/
+me@localhost$ cv service
+me@localhost$ cv service /flexmailer/
 ```
 
 If you intend to run unit-tests, and if you do *not* use `civibuild`,
@@ -64,8 +119,10 @@ the name of the test users). To do this, run:
 
 ```bash
 me@localhost$ cd /var/www/my/web/site
+me@localhost$ cv vars:show
 me@localhost$ cv vars:fill
 me@localhost$ vi ~/.cv.json
+me@localhost$ cv vars:show
 ```
 
 Example: PHP
@@ -148,7 +205,7 @@ Bootstrap
     configuring "multi-site", adding bespoke "symlinks", or moving the `wp-admin` folder.  For advanced layouts, you
     may need to set an environment variable.
 
-* __`CIVICRM_BOOT`__: To enable the _standard boot protocol_, set this environment variable. Specify the CMS type and base-directory. Examples:
+* __`CIVICRM_BOOT`__ (*new protocol*): Boot the CMS first (and then ask it to boot CiviCRM). This is more representative of a typical HTTP page-view, and it is compatible with commands like `core:install`. Set this environment variable to specify the CMS type and base-directory. Compare:
 
     ```bash
     export CIVICRM_BOOT="Drupal://var/www/public"
@@ -157,10 +214,7 @@ Bootstrap
     export CIVICRM_BOOT="Auto://."
     ```
 
-    (Note: In the standard protocol, `cv` loads a CMS first and then asks it to bootstrap CiviCRM. This is more representative of
-    a typical HTTP page-view, and it is compatible with commands like `core:install`. However, it has not been used for as long.)
-
-* __`CIVICRM_SETTINGS`__: To enable the _legacy boot protocol_, set this environment variable. Specify the `civicrm.settings.php` location. Examples:
+* __`CIVICRM_SETTINGS`__ (*old protocol*): Boot CiviCRM first (and then ask it to boot the CMS). Set this environment variable to specify the `civicrm.settings.php` location. Compare:
 
     ```bash
     export CIVICRM_SETTINGS="/var/www/sites/default/files/civicrm.settings.php"
@@ -174,76 +228,47 @@ Bootstrap
 > ___NOTE___: In absence of a configuration variable, the __Automatic__ mode will behave like `CIVICRM_SETTINGS="Auto"` (in v0.3.x).
   This is tentatively planned to change in v0.4.x, where it will behave like `CIVICRM_BOOT="Auto://."`
 
-Build
-=====
+Additionally, some deployments handle multiple sites ("multisite"/"multidomain"). You should target a specific site using `--url` or `HTTP_HOST`.
 
-To build a new `phar` executable, use [box](http://box-project.github.io/box2/):
+Here are a few examples of putting these together:
 
-```
-$ git clone https://github.com/civicrm/cv
-$ cd cv
-$ composer install
-$ php -dphar.readonly=0 `which box` build
+```bash
+## Use --url for a domain
+export CIVICRM_BOOT="WordPress:/$HOME/public_html/"
+cv --url='https://www.example.org' ext:list -L
 ```
 
-If you want to run with the same versions of PHP+box that are used for official builds, then run:
-
-```
-nix-shell --run ./build.sh
-```
-
-Unit-Tests (Standard)
-=====================
-
-To run the standard test suite, you will need to pick an existing CiviCRM
-installation and put it in `CV_TEST_BUILD`, as in:
-
-```
-$ git clone https://github.com/civicrm/cv
-$ cd cv
-$ composer install
-$ export CV_TEST_BUILD=/home/me/buildkit/build/dmaster/web/
-$ phpunit7 --group std
-PHPUnit 7.5.15 by Sebastian Bergmann and contributors.
-
-...............................................................  63 / 118 ( 53%)
-.......................................................         118 / 118 (100%)
-
-Time: 3.13 minutes, Memory: 14.00 MB
-
-OK (118 tests, 295 assertions)
+```bash
+## Use HTTP_HOST for a domain
+export CIVICRM_BOOT="WordPress:/$HOME/public_html/"
+export HTTP_HOST=www.example.org
+cv ext:list -L
 ```
 
-> We generally choose an existing installation based on `civibuild`
-> configuration like `dmaster`. The above example assumes that your
-> build is located at `/home/me/buildkit/build/dmaster/`.
-
-
-To be quite thorough, you may want to test against multiple builds (e.g.
-with various CMS's and file structures).  Prepare these builds separately
-and loop through them, e.g.
-
-```
-$ for CV_TEST_BUILD in /home/me/buildkit/build/{dmaster,wpmaster,bmaster} ; do export CV_TEST_BUILD; phpunit7 --group std; done
+```bash
+## Use --url for a subfolder
+export CIVICRM_BOOT="WordPress:/$HOME/public_html/"
+cv --url='www.example.org/nyc' ext:list -L
 ```
 
-Unit-Tests (Installer)
-======================
+Autocomplete
+============
 
-The `cv core:install` and `cv core:uninstall` commands have more stringent execution requirements, e.g.
+There is limited/experimental support for shell autocompletion based on [stecman/symfony-console-completion](https://github.com/stecman/symfony-console-completion).
+To enable it:
 
-* Each test-run needs to work with an empty build (which does not have a Civi database or settings file).
-  It specifically calls `civibuild` and `amp` to create+destroy builds during execution.
-* These commands, in turn, may add new vhosts and databases. This can require elevated privileges (`sudo`).
-* These commands have more potential failure points (e.g. intermittent networking issues can disrupt
-  the test). To monitor them, you should set `DEBUG=1`.
-* There must be a copy of the `civicrm-setup` source tree.  At time of writing, this is not yet bundled with
-  the main tarballs, but you can set `CV_SETUP_PATH` to point to your own copy.
+```sh
+# BASH ~4.x, ZSH
+source <(cv _completion --generate-hook)
 
-Given these extra requirements, this test runs as a separate group.
+# BASH ~3.x, ZSH
+cv _completion --generate-hook | source /dev/stdin
 
-A typical execution might look like:
-
+# BASH (any version)
+eval $(cv _completion --generate-hook)
 ```
-$ env DEBUG=1 OFFLINE=1 CV_SETUP_PATH=$HOME/src/civicrm-setup phpunit7 --group installer
-```
+
+Development
+===========
+
+For more information, see [doc/develop.md](doc/develop.md).

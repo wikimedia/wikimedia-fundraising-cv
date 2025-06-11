@@ -2,16 +2,14 @@
 namespace Civi\Cv\Command;
 
 use Civi\Cv\Encoder;
-use Civi\Cv\Util\BootTrait;
 use Civi\Cv\Util\StructuredOutputTrait;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class ApiCommand extends BaseCommand {
+class ApiCommand extends CvCommand {
 
-  use BootTrait;
   use StructuredOutputTrait;
 
   /**
@@ -29,11 +27,11 @@ class ApiCommand extends BaseCommand {
 
   protected function configure() {
     $this
-      ->setName('api')
-      ->setAliases(['api3'])
+      ->setName('api3')
+      ->setAliases(['api'])
       ->setDescription('Call APIv3')
       ->addOption('in', NULL, InputOption::VALUE_REQUIRED, 'Input format (args,json)', 'args')
-      ->configureOutputOptions(['tabular' => TRUE, 'shortcuts' => ['table', 'list']])
+      ->configureOutputOptions(['tabular' => TRUE, 'shortcuts' => ['table', 'list', 'json']])
       ->addArgument('Entity.action', InputArgument::REQUIRED)
       ->addArgument('key=value', InputArgument::IS_ARRAY)
       ->setHelp('Call APIv3
@@ -47,16 +45,13 @@ TIP: To change the default output format, set CV_OUTPUT.
 
 TIP: To display a full backtrace of any errors, pass "-vv" (very verbose).
 ');
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $C = '<comment>';
     $_C = '</comment>';
     $I = '<info>';
     $_I = '</info>';
-
-    $this->boot($input, $output);
 
     list($entity, $action) = explode('.', $input->getArgument('Entity.action'));
     $params = $this->parseParams($input);

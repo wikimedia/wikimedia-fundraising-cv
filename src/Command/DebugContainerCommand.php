@@ -1,7 +1,6 @@
 <?php
 namespace Civi\Cv\Command;
 
-use Civi\Cv\Util\BootTrait;
 use Civi\Cv\Util\Relativizer;
 use Civi\Cv\Util\StructuredOutputTrait;
 use Symfony\Component\Console\Input\InputArgument;
@@ -12,35 +11,35 @@ use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
-class DebugContainerCommand extends BaseCommand {
+class DebugContainerCommand extends CvCommand {
 
-  use BootTrait;
   use StructuredOutputTrait;
 
   protected function configure() {
     $this
-      ->setName('debug:container')
-      ->setAliases(['service'])
-      ->setDescription('Dump the container configuration')
+      ->setName('service')
+      ->setAliases(['svc'])
+      ->setDescription('Inspect the service container')
       ->addArgument('name', InputArgument::OPTIONAL, 'An service name or regex')
       ->addOption('concrete', 'C', InputOption::VALUE_NONE, 'Display concrete class names. (This requires activating every matching service.)')
       ->addOption('internal', 'i', InputOption::VALUE_NONE, 'Include internal services')
       ->addOption('tag', NULL, InputOption::VALUE_REQUIRED, 'Find services by tag.')
-      ->configureOutputOptions(['tabular' => TRUE, 'fallback' => 'table'])
+      ->configureOutputOptions(['tabular' => TRUE, 'fallback' => 'table', 'defaultColumns' => 'service,class,events,extras', 'shortcuts' => ['table', 'list', 'json', 'all']])
       ->setHelp('
 Dump the container configuration
 
 NOTE: By default, internal services are not displayed. However, some flags will enable display of
 internal services (eg `--all`, `--tag=XXX`, or `-v`).
 ');
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  protected function initialize(InputInterface $input, OutputInterface $output) {
     define('CIVICRM_CONTAINER_CACHE', 'never');
     $output->getErrorOutput()->writeln('<comment>The debug command ignores the container cache.</comment>');
-    $this->boot($input, $output);
+    parent::initialize($input, $output);
+  }
 
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $c = $this->getInspectableContainer($input);
 
     $filterPat = $input->getArgument('name');
@@ -89,6 +88,7 @@ internal services (eg `--all`, `--tag=XXX`, or `-v`).
     else {
       $this->showBasicReport($input, $output, $definitions);
     }
+    return 0;
   }
 
   public function showBasicReport(InputInterface $input, OutputInterface $output, array $definitions): void {
@@ -112,7 +112,7 @@ internal services (eg `--all`, `--tag=XXX`, or `-v`).
       $rows[] = array('service' => $name, 'class' => $class, 'events' => $events ? count($events) : '', 'extras' => implode(' ', $extras));
     }
 
-    $this->sendTable($input, $output, $rows, array('service', 'class', 'events', 'extras'));
+    $this->sendStandardTable($rows);
   }
 
   public function showVerboseReport(InputInterface $input, OutputInterface $output, array $definitions): void {
@@ -198,20 +198,16 @@ internal services (eg `--all`, `--tag=XXX`, or `-v`).
   }
 
   /**
-   * @param $definition
-   *
+   * @param \Symfony\Component\DependencyInjection\Definition $definition
    * @return array|string
    */
-  protected function getEvents($definition) {
+  protected function getEvents($definition): array {
     if (class_exists('Civi\Core\Event\EventScanner')) {
       if ($definition->getTag('event_subscriber') || $definition->getTag('kernel.event_subscriber')) {
         return \Civi\Core\Event\EventScanner::findListeners($definition->getClass());
       }
-      else {
-        return '';
-      }
     }
-    return '?';
+    return [];
   }
 
   /**

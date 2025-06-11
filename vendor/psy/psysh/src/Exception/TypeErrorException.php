@@ -27,7 +27,7 @@ class TypeErrorException extends \Exception implements Exception
      * @param int             $code     (default: 0)
      * @param \Throwable|null $previous (default: null)
      */
-    public function __construct(string $message = '', int $code = 0, \Throwable $previous = null)
+    public function __construct(string $message = '', int $code = 0, ?\Throwable $previous = null)
     {
         $this->rawMessage = $message;
         $message = \preg_replace('/, called in .*?: eval\\(\\)\'d code/', '', $message);

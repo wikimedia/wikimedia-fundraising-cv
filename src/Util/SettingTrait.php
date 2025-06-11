@@ -73,10 +73,6 @@ trait SettingTrait {
 
     $result = $this->fillMeta($result);
 
-    usort($result, function ($a, $b) {
-      return strcmp($a['key'], $b['key']);
-    });
-
     $maxColWidth = 40;
     $abridged = FALSE;
     if (in_array($input->getOption('out'), ['table'])) {
@@ -96,9 +92,7 @@ trait SettingTrait {
       }
     }
 
-    $columns = explode(',', $input->getOption('columns'));
-
-    $this->sendTable($input, $output, $result, $columns);
+    $this->sendStandardTable($result);
     if ($abridged) {
       $errorOutput->writeln('<comment>NOTE: Some values were truncated for readability. To see full data, use "-v" or "--out=json".</comment>');
     }
@@ -157,13 +151,13 @@ trait SettingTrait {
     $filterList = [];
     foreach ($names as $filterPat) {
       if ($filterPat[0] === '/') {
-        if (!\CRM_Utils_String::endsWith($filterPat, '/')) {
-          throw new \RuntimeException('Malformed regular expression. (Modifiers are not supported.)');
+        if (!preg_match(';/i?$;', $filterPat)) {
+          throw new \RuntimeException('Malformed regular expression. (There may be a missing delimiter or invalid modifier.)');
         }
-        $filterList[] = substr($filterPat, 1, -1);
+        $filterList[] = $filterPat;
       }
       else {
-        $filterList[] = '^' . preg_quote($filterPat, '/') . '$';
+        $filterList[] = '/^' . preg_quote($filterPat, '/') . '$/';
       }
     }
 
@@ -174,8 +168,13 @@ trait SettingTrait {
     }
     else {
       $filterExpr = '/' . implode('|', $filterList) . '/';
-      $filter = function (string $name) use ($filterExpr) {
-        return (bool) preg_match($filterExpr, $name);
+      $filter = function (string $name) use ($filterList) {
+        foreach ($filterList as $filterExpr) {
+          if (preg_match($filterExpr, $name)) {
+            return TRUE;
+          }
+        }
+        return FALSE;
       };
     }
     return $filter;

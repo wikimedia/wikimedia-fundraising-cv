@@ -1,13 +1,23 @@
 <?php
 namespace Civi\Cv;
 
-use LesserEvil\ShellVerbosityIsEvil;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class Application extends \Symfony\Component\Console\Application {
+class Application extends BaseApplication {
+
+  const DEV_VERSION = '0.3.x';
+
+  protected $deprecatedAliases = [
+    'debug:container' => 'service',
+    'debug:event-dispatcher' => 'event',
+  ];
+
+  public function __construct($name = 'UNKNOWN', $version = 'UNKNOWN') {
+    if ($version === 'UNKNOWN') {
+      $version = static::version() ?? 'UNKNOWN';
+    }
+    parent::__construct($name, $version);
+  }
 
   /**
    * Determine the version number.
@@ -20,7 +30,7 @@ class Application extends \Symfony\Component\Console\Application {
     $marker = '@' . 'package' . '_' . 'version' . '@';
     $v = '@package_version@';
     if ($v !== $marker) {
-      return $v;
+      return ltrim($v, 'v');
     }
     if (is_callable('\Composer\InstalledVersions::getVersion')) {
       $v = \Composer\InstalledVersions::getVersion('civicrm/cv');
@@ -28,60 +38,7 @@ class Application extends \Symfony\Component\Console\Application {
         return $v;
       }
     }
-    return NULL;
-  }
-
-  /**
-   * Primary entry point for execution of the standalone command.
-   */
-  public static function main($binDir) {
-    $application = new Application('cv', static::version() ?? 'UNKNOWN');
-
-    $application->setAutoExit(FALSE);
-    ErrorHandler::pushHandler();
-    $result = $application->run();
-    ErrorHandler::popHandler();
-    exit($result);
-  }
-
-  public function __construct($name = 'UNKNOWN', $version = 'UNKNOWN') {
-    parent::__construct($name, $version);
-    $this->setCatchExceptions(TRUE);
-    $this->addCommands($this->createCommands());
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function getDefaultInputDefinition() {
-    $definition = parent::getDefaultInputDefinition();
-    $definition->addOption(new InputOption('cwd', NULL, InputOption::VALUE_REQUIRED, 'If specified, use the given directory as working directory.'));
-    return $definition;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function doRun(InputInterface $input, OutputInterface $output) {
-    ErrorHandler::setRenderer(function($e) use ($output) {
-      if ($output instanceof ConsoleOutputInterface) {
-        $this->renderThrowable($e, $output->getErrorOutput());
-      }
-      else {
-        $this->renderThrowable($e, $output);
-      }
-    });
-
-    $workingDir = $input->getParameterOption(array('--cwd'));
-    if (FALSE !== $workingDir && '' !== $workingDir) {
-      if (!is_dir($workingDir)) {
-        throw new \RuntimeException("Invalid working directory specified, $workingDir does not exist.");
-      }
-      if (!chdir($workingDir)) {
-        throw new \RuntimeException("Failed to use directory specified, $workingDir as working directory.");
-      }
-    }
-    return parent::doRun($input, $output);
+    return static::DEV_VERSION;
   }
 
   /**
@@ -114,6 +71,7 @@ class Application extends \Symfony\Component\Console\Application {
     $commands[] = new \Civi\Cv\Command\SettingRevertCommand();
     $commands[] = new \Civi\Cv\Command\SqlCliCommand();
     $commands[] = new \Civi\Cv\Command\ShowCommand();
+    $commands[] = new \Civi\Cv\Command\StatusCommand();
     // $commands[] = new \Civi\Cv\Command\UpgradeCommand();
     $commands[] = new \Civi\Cv\Command\UpgradeDbCommand();
     // $commands[] = new \Civi\Cv\Command\UpgradeDlCommand();
@@ -129,14 +87,45 @@ class Application extends \Symfony\Component\Console\Application {
       $commands[] = new \Civi\Cv\Command\CoreCheckReqCommand();
       $commands[] = new \Civi\Cv\Command\CoreInstallCommand();
       $commands[] = new \Civi\Cv\Command\CoreUninstallCommand();
+      $commands[] = new \Civi\Cv\Command\QueueNextCommand();
+      $commands[] = new \Stecman\Component\Symfony\Console\BashCompletion\CompletionCommand();
     }
     return $commands;
   }
 
-  protected function configureIO(InputInterface $input, OutputInterface $output) {
-    ShellVerbosityIsEvil::doWithoutEvil(function() use ($input, $output) {
-      parent::configureIO($input, $output);
-    });
+  public function find($name) {
+    if (isset($this->deprecatedAliases[$name])) {
+      fprintf(STDERR, "WARNING: Subcommand \"%s\" has been renamed to \"%s\". In the future, the old name may stop working.\n\n", $name, $this->deprecatedAliases[$name]);
+      $name = $this->deprecatedAliases[$name];
+    }
+    return parent::find($name);
+  }
+
+  public function doRenderThrowable(\Throwable $e, OutputInterface $output): void {
+    parent::doRenderThrowable($e, $output);
+
+    $indent = $output->isVerbose() ? ' ' : '  '; /* Because, yeah, sure. */
+
+    $causes = [];
+    $ei = $e;
+    while ($ei !== NULL) {
+      if (method_exists($ei, 'getCause')) {
+        $causes[] = $ei->getCause();
+      }
+      $ei = $ei->getPrevious();
+    }
+
+    foreach ($causes as $cause) {
+      if ($cause instanceof \DB_Error && !empty($cause->getDebugInfo())) {
+        $output->writeln(sprintf("<comment>Debug Info</comment>:"));
+        $parts = explode("\n", $cause->getDebugInfo());
+        foreach ($parts as $part) {
+          $output->writeln($indent . $part, OutputInterface::OUTPUT_RAW);
+        }
+        $output->writeln('');
+        break;
+      }
+    }
   }
 
 }

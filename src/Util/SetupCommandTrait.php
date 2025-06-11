@@ -2,10 +2,10 @@
 namespace Civi\Cv\Util;
 
 use Civi\Cv\CmsBootstrap;
+use Civi\Cv\Log\SymfonyConsoleLogger;
 use Civi\Setup\DbUtil;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Logger\ConsoleLogger;
 use Symfony\Component\Console\Output\OutputInterface;
 
 define('CV_SETUP_PROTOCOL_VER', '1.0');
@@ -15,7 +15,6 @@ define('CV_SETUP_PROTOCOL_VER', '1.0');
  * civicrm-setup framework.
  */
 trait SetupCommandTrait {
-  use BootTrait;
 
   /**
    * Register any CLI options which affect the initialization of the
@@ -29,7 +28,6 @@ trait SetupCommandTrait {
       ->addOption('setup-path', NULL, InputOption::VALUE_OPTIONAL, 'The path to CivCRM-Setup source tree. (If omitted, read CV_SETUP_PATH or scan common defaults.)')
       ->addOption('src-path', NULL, InputOption::VALUE_OPTIONAL, 'The path to CivCRM-Core source tree. (If omitted, read CV_SETUP_SRC_PATH or scan common defaults.)')
       ->addOption('plugin-path', NULL, InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY, 'A directory with extra installer plugins')
-      ->addOption('cms-base-url', NULL, InputOption::VALUE_OPTIONAL, 'The URL of the CMS (If omitted, attempt to autodetect.)')
       ->addOption('lang', NULL, InputOption::VALUE_OPTIONAL, 'Specify the installation language')
       ->addOption('comp', NULL, InputOption::VALUE_OPTIONAL, 'Comma-separated list of CiviCRM components to enable. (Ex: CiviEvent,CiviContribute,CiviMember,CiviMail,CiviReport)')
       ->addOption('ext', NULL, InputOption::VALUE_OPTIONAL, 'Comma-separated list of CiviCRM extensions to enable. (Ex: org.civicrm.shoreditch,org.civicrm.flexmailer)')
@@ -66,7 +64,14 @@ trait SetupCommandTrait {
       implode(DIRECTORY_SEPARATOR, [$b->getBootedCmsPath(), 'vendor', 'civicrm', 'civicrm-core']),
       implode(DIRECTORY_SEPARATOR, [dirname($b->getBootedCmsPath()), 'vendor', 'civicrm', 'civicrm-core']),
     ];
-    $setupOptions['srcPath'] = ArrayUtil::pickFirst($possibleSrcPaths, 'file_exists');
+    if ($b->getBootedCmsType() === 'Standalone') {
+      $possibleSrcPaths[] = implode(DIRECTORY_SEPARATOR, [$b->getBootedCmsPath(), 'core']);
+      $possibleSrcPaths[] = implode(DIRECTORY_SEPARATOR, [$b->getBootedCmsPath(), 'web', 'core']);
+      $possibleSrcPaths[] = dirname($b->getBootedCmsPath());
+    }
+    $setupOptions['srcPath'] = ArrayUtil::pickFirst($possibleSrcPaths, function($f) {
+      return $f !== NULL && file_exists($f);
+    });
     if ($setupOptions['srcPath']) {
       $output->writeln(sprintf('<info>Found code for <comment>%s</comment> in <comment>%s</comment></info>', 'civicrm-core', $setupOptions['srcPath']), $defaultOutputOptions);
     }
@@ -84,7 +89,9 @@ trait SetupCommandTrait {
       implode(DIRECTORY_SEPARATOR, [dirname($setupOptions['srcPath']), 'civicrm-setup']),
       implode(DIRECTORY_SEPARATOR, ['/usr', 'local', 'share', 'civicrm-setup']),
     ];
-    $setupOptions['setupPath'] = ArrayUtil::pickFirst($possibleSetupPaths, 'file_exists');
+    $setupOptions['setupPath'] = ArrayUtil::pickFirst($possibleSetupPaths, function($f) {
+      return $f !== NULL && file_exists($f);
+    });
     if ($setupOptions['setupPath']) {
       $output->writeln(sprintf('<info>Found code for <comment>%s</comment> in <comment>%s</comment></info>', 'civicrm-setup', $setupOptions['setupPath']), $defaultOutputOptions);
     }
@@ -93,12 +100,12 @@ trait SetupCommandTrait {
       throw new \Exception("Failed to locate civicrm-setup");
     }
 
-    // Note: We set 'cms-base-url' both before and after init. The "before"
+    // Note: We set 'cmsBaseUrl' both before and after init. The "before"
     // lets us give hints to init code which reads cmsBaseUrl. The "after"
     // lets us override any changes made by init code (i.e. this user-input
     // is mandatory).
-    if ($input->getOption('cms-base-url')) {
-      $setupOptions['cmsBaseUrl'] = $input->getOption('cms-base-url');
+    if ($input->getOption('url')) {
+      $setupOptions['cmsBaseUrl'] = $input->getOption('url');
     }
 
     $pluginPaths = $this->buildPluginPaths($b, $input->getOption('plugin-path'));
@@ -132,7 +139,7 @@ trait SetupCommandTrait {
     }
 
     \Civi\Setup::assertProtocolCompatibility(CV_SETUP_PROTOCOL_VER);
-    \Civi\Setup::init($setupOptions, $pluginCallback, new ConsoleLogger($output));
+    \Civi\Setup::init($setupOptions, $pluginCallback, new PsrLogger(new SymfonyConsoleLogger('Setup', $output)));
     $setup = \Civi\Setup::instance();
 
     // Override defaults detected by setup initialization.
@@ -142,7 +149,7 @@ trait SetupCommandTrait {
       $setup->getModel()->settingsPath,
     ]);
     $setup->getModel()->cmsBaseUrl = ArrayUtil::pickFirst([
-      $input->getOption('cms-base-url'),
+      $input->getOption('url'),
       $setup->getModel()->cmsBaseUrl,
     ]);
     if ($input->getOption('db')) {

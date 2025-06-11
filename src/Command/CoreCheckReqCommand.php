@@ -8,7 +8,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class CoreCheckReqCommand extends BaseCommand {
+class CoreCheckReqCommand extends CvCommand {
 
   use SetupCommandTrait;
   use DebugDispatcherTrait;
@@ -18,7 +18,7 @@ class CoreCheckReqCommand extends BaseCommand {
     $this
       ->setName('core:check-req')
       ->setDescription('Check installation requirements')
-      ->configureOutputOptions(['tabular' => TRUE, 'fallback' => 'table'])
+      ->configureOutputOptions(['tabular' => TRUE, 'fallback' => 'table', 'shortcuts' => TRUE, 'defaultColumns' => 'severity,section,name,message'])
       ->addOption('filter-warnings', 'w', InputOption::VALUE_NONE, 'Show warnings')
       ->addOption('filter-errors', 'e', InputOption::VALUE_NONE, 'Show errors')
       ->addOption('filter-infos', 'i', InputOption::VALUE_NONE, 'Show info')
@@ -35,10 +35,13 @@ $ cv core:check-req -e
 Example: Show warnings and errors
 $ cv core:check-req -we
 ');
-    $this->configureBootOptions('none');
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  public function getBootOptions(): array {
+    return ['default' => 'none', 'allow' => ['none']];
+  }
+
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $filterSeverities = $this->parseFilter($input);
 
     $showBootMsgsByDefault = in_array($input->getOption('out'), ['table', 'pretty']);
@@ -47,13 +50,7 @@ $ cv core:check-req -we
     $messages = array_filter($reqs->getMessages(), function ($m) use ($filterSeverities) {
       return in_array($m['severity'], $filterSeverities);
     });
-    uasort($messages, function ($a, $b) {
-      return strcmp(
-        $a['severity'] . '-' . $a['section'] . '-' . $a['name'],
-        $b['severity'] . '-' . $b['section'] . '-' . $b['name']
-      );
-    });
-    $this->sendTable($input, $output, $messages, array('severity', 'section', 'name', 'message'));
+    $this->sendStandardTable($messages);
     return $reqs->getErrors() ? 1 : 0;
   }
 

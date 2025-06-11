@@ -3,14 +3,11 @@ namespace Civi\Cv\Command;
 
 use Civi\Cv\Util\Datasource;
 use Civi\Cv\Util\Process;
-use Civi\Cv\Util\BootTrait;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class SqlCliCommand extends BaseCommand {
-
-  use BootTrait;
+class SqlCliCommand extends CvCommand {
 
   protected function configure() {
     $this
@@ -38,23 +35,21 @@ The ENV expressions are prefixed to indicate their escaping rule:
   #ENV[FOO]    Produces the numerical value of FOO (or fails)
   !ENV[FOO]    Produces the raw, unescaped string version of FOO
 ");
-    $this->configureBootOptions();
   }
 
   protected function initialize(InputInterface $input, OutputInterface $output) {
     if ($input->getOption('dry-run') && $output->getVerbosity() <= OutputInterface::VERBOSITY_NORMAL) {
       $output->setVerbosity(OutputInterface::VERBOSITY_VERBOSE);
     }
+    parent::initialize($input, $output);
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
-    $this->boot($input, $output);
-
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $datasource = new Datasource();
     $datasource->loadFromCiviDSN($this->pickDsn($input->getOption('target')));
 
     $mysql = Process::findCommand('mysql');
-    if (Process::isShellScript($mysql)) {
+    if (Process::isShellScript($mysql) && !static::supportsDefaultsFile($mysql)) {
       $output->getErrorOutput()->writeln("<info>[SqlCommand]</info> <comment>WARNING: The mysql command appears to be a wrapper script. In some environments, this may interfere with credential passing.</comment>");
     }
 
@@ -156,6 +151,11 @@ The ENV expressions are prefixed to indicate their escaping rule:
     }
 
     return $dsn;
+  }
+
+  protected function supportsDefaultsFile(string $bin): bool {
+    $code = file_get_contents($bin);
+    return preg_match(';@ respect --defaults-file;', $code);
   }
 
 }

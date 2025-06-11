@@ -1,12 +1,14 @@
 {
     "chmod": "0755",
     "directories": [
+        "lib/src",
+        "lib/plugin",
         "src"
     ],
     "finder": [
         {
             "name": "*.php",
-            "exclude": ["phpunit", "Tests", "Test", "tests", "test"],
+            "exclude": ["phpunit", "Tests", "Test", "tests", "test", "composer-patches"],
             "in": "vendor"
         }
     ],

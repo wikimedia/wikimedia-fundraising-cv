@@ -323,7 +323,7 @@ class SignatureFormatter implements ReflectorFormatter
      *
      * @param \ReflectionType $type
      */
-    private static function formatReflectionType(\ReflectionType $type = null): string
+    private static function formatReflectionType(?\ReflectionType $type = null): string
     {
         if ($type === null) {
             return '';

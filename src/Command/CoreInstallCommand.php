@@ -2,6 +2,7 @@
 namespace Civi\Cv\Command;
 
 use Civi\Cv\Encoder;
+use Civi\Cv\Util\OptionalOption;
 use Civi\Cv\Util\SetupCommandTrait;
 use Civi\Cv\Util\DebugDispatcherTrait;
 use Symfony\Component\Console\Input\InputInterface;
@@ -9,7 +10,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 
-class CoreInstallCommand extends BaseCommand {
+class CoreInstallCommand extends CvCommand {
 
   use SetupCommandTrait;
   use DebugDispatcherTrait;
@@ -32,7 +33,7 @@ $ cv core:install
 $ wp plugin activate civicrm
 
 Example: Install on a basic Drupal 7 build.
-$ cv core:install --cms-base-url=http://example.com/
+$ cv core:install --url=https://example.com/
 $ drush -y en civicrm
 
 Example: Install on WordPress with a custom language and database.
@@ -49,15 +50,18 @@ Example: Install while setting a hidden option
 $ cv core:install --model=extras.opt-in.versionCheck=1
 $ cv core:install -m extras.opt-in.versionCheck=1
 ');
-    $this->configureBootOptions('none');
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  public function getBootOptions(): array {
+    return ['default' => 'none', 'allow' => ['none']];
+  }
+
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $setup = $this->bootSetupSubsystem($input, $output);
 
     $debugMode = FALSE;
 
-    $debugEvent = $this->parseOptionalOption($input, ['--debug-event'], NULL, '');
+    $debugEvent = OptionalOption::parse($input, ['--debug-event'], NULL, '');
     if ($debugEvent !== NULL) {
       $eventNames = $this->findEventNames($setup->getDispatcher(), $debugEvent);
       $this->printEventListeners($output, $setup->getDispatcher(), $eventNames);
@@ -77,6 +81,7 @@ $ cv core:install -m extras.opt-in.versionCheck=1
     if ($output->getVerbosity() > OutputInterface::VERBOSITY_NORMAL) {
       $output->writeln(Encoder::encode($setup->getModel()->getValues(), 'json-pretty'));
     }
+    return 0;
   }
 
   /**

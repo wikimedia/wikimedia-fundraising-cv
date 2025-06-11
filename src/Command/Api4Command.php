@@ -3,16 +3,14 @@ namespace Civi\Cv\Command;
 
 use Civi\Cv\Encoder;
 use Civi\Cv\Util\Api4ArgParser;
-use Civi\Cv\Util\BootTrait;
 use Civi\Cv\Util\StructuredOutputTrait;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class Api4Command extends BaseCommand {
+class Api4Command extends CvCommand {
 
-  use BootTrait;
   use StructuredOutputTrait;
 
   /**
@@ -38,7 +36,7 @@ class Api4Command extends BaseCommand {
       ->setName('api4')
       ->setDescription('Call APIv4')
       ->addOption('in', NULL, InputOption::VALUE_REQUIRED, 'Input format (args,json)', 'args')
-      ->configureOutputOptions(['tabular' => TRUE, 'shortcuts' => ['table', 'list']])
+      ->configureOutputOptions(['tabular' => TRUE, 'shortcuts' => ['table', 'list', 'json']])
       ->addOption('dry-run', 'N', InputOption::VALUE_NONE, 'Preview the API call. Do not execute.')
       ->addArgument('Entity.action', InputArgument::REQUIRED)
       ->addArgument('key=value', InputArgument::IS_ARRAY)
@@ -122,16 +120,13 @@ If you'd like to inspect the behavior more carefully, try using {$I}--dry-run{$_
 
 NOTE: To change the default output format, set CV_OUTPUT.
 ");
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $C = '<comment>';
     $_C = '</comment>';
     $I = '<info>';
     $_I = '</info>';
-
-    $this->boot($input, $output);
 
     if (!function_exists('civicrm_api4')) {
       throw new \RuntimeException("Please enable APIv4 before running APIv4 commands.");
@@ -151,7 +146,12 @@ NOTE: To change the default output format, set CV_OUTPUT.
 
     $out = $input->getOption('out');
     if (!in_array($out, Encoder::getFormats()) && in_array($out, Encoder::getTabularFormats())) {
-      $columns = empty($params['select']) ? array_keys($result->first()) : $params['select'];
+      if (!empty($params['select'])) {
+        $columns = $params['select'];
+      }
+      else {
+        $columns = count($result) ? array_keys($result->first()) : [''];
+      }
       $this->sendTable($input, $output, (array) $result, $columns);
     }
     else {

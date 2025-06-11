@@ -2,6 +2,8 @@
 
 namespace Civi\Cv\Command;
 
+use Civi\Cv\Cv;
+use Civi\Cv\Util\ExtensionTrait;
 use Civi\Cv\Util\StructuredOutputTrait;
 use Civi\Cv\Util\UrlCommandTrait;
 use GuzzleHttp\Client;
@@ -9,8 +11,9 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class HttpCommand extends BaseExtensionCommand {
+class HttpCommand extends CvCommand {
 
+  use ExtensionTrait;
   use StructuredOutputTrait;
   use UrlCommandTrait;
 
@@ -43,12 +46,9 @@ NOTE: If you use `--login` and do not have `authx`, then it prompts about
       enabling the extension. The extra I/O may influence some scripted
       use-cases.
 ');
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
-    $this->boot($input, $output);
-
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $method = $input->getOption('request');
     $data = $this->parseRequestData($input);
     $headers = $this->parseRequestHeaders($input);
@@ -67,6 +67,7 @@ NOTE: If you use `--login` and do not have `authx`, then it prompts about
       $statusCode = $this->sendRequest($output, $method, $row['value'], array_merge($headers, $row['headers'] ?? []), $data);
       return ($statusCode >= 200 && $statusCode < 300) ? 0 : $statusCode;
     }
+    return 0;
   }
 
   /**
@@ -81,9 +82,8 @@ NOTE: If you use `--login` and do not have `authx`, then it prompts about
    */
   protected function sendRequest(OutputInterface $output, string $method, string $url, array $headers = [], ?string $body = NULL): int {
     $method = strtoupper($method);
-    $errorOutput = is_callable([$output, 'getErrorOutput']) ? $output->getErrorOutput() : $output;
-    $verbose = function(string $text) use ($errorOutput) {
-      $errorOutput->writeln($text, OutputInterface::OUTPUT_RAW | OutputInterface::VERBOSITY_VERBOSE);
+    $verbose = function(string $text) {
+      Cv::errorOutput()->writeln($text, OutputInterface::OUTPUT_RAW | OutputInterface::VERBOSITY_VERBOSE);
     };
 
     $verbose("> $method $url");

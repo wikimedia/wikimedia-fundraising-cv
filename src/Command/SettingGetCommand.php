@@ -1,7 +1,7 @@
 <?php
 namespace Civi\Cv\Command;
 
-use Civi\Cv\Util\BootTrait;
+use Civi\Core\SettingsBag;
 use Civi\Cv\Util\SettingTrait;
 use Civi\Cv\Util\StructuredOutputTrait;
 use Symfony\Component\Console\Input\InputArgument;
@@ -9,9 +9,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class SettingGetCommand extends BaseCommand {
+class SettingGetCommand extends CvCommand {
 
-  use BootTrait;
   use StructuredOutputTrait;
   use SettingTrait;
 
@@ -28,7 +27,7 @@ class SettingGetCommand extends BaseCommand {
       ->addOption('in', NULL, InputOption::VALUE_REQUIRED, 'Input format (args,json)', 'args')
       ->configureOutputOptions([
         'tabular' => TRUE,
-        'shortcuts' => ['table', 'list'],
+        'shortcuts' => TRUE,
         'fallback' => 'table',
         'availColumns' => 'scope,key,value,default,explicit,mandatory,layer',
         'defaultColumns' => 'scope,key,value,layer',
@@ -68,12 +67,10 @@ class SettingGetCommand extends BaseCommand {
     {$C}cv setting:get --scope={$_C}{$I}contact{$_I}{$C} --user={$_C}{$I}admin{$_I}     (admin's contact)
     {$C}cv setting:get --scope={$_C}{$I}contact:201{$_I}              (contact #201)
 ");
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
-    $this->boot($input, $output);
-
+  protected function execute(InputInterface $input, OutputInterface $output): int {
+    $hasExplicit = method_exists(SettingsBag::class, 'hasExplicit') /* v6.4 */ ? 'hasExplicit' : 'hasExplict';
     $filter = $this->createSettingFilter($input->getArgument('name'));
 
     $result = [];
@@ -93,7 +90,7 @@ class SettingGetCommand extends BaseCommand {
           'default' => $decode($settingBag->getDefault($settingKey)),
           'explicit' => $decode($settingBag->getExplicit($settingKey)),
           'mandatory' => $decode($settingBag->getMandatory($settingKey)),
-          'layer' => $settingBag->getMandatory($settingKey) !== NULL ? 'mandatory' : ($settingBag->hasExplict($settingKey) ? 'explicit' : 'default'),
+          'layer' => $settingBag->getMandatory($settingKey) !== NULL ? 'mandatory' : ($settingBag->$hasExplicit($settingKey) ? 'explicit' : 'default'),
         ];
         $result[] = $row;
       }

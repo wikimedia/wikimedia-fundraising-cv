@@ -6,7 +6,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class UpgradeCommand extends BaseCommand {
+class UpgradeCommand extends CvCommand {
 
   use StructuredOutputTrait;
 
@@ -24,7 +24,7 @@ Examples:
     // parent::configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  protected function execute(InputInterface $input, OutputInterface $output): int {
 
     throw new \RuntimeException("FIXME: Calls to run() should be escaped, e.g. with Process::sprintf()");
 

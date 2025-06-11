@@ -1,15 +1,13 @@
 <?php
 namespace Civi\Cv\Command;
 
-use Civi\Cv\Util\BootTrait;
 use Civi\Cv\Util\StructuredOutputTrait;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class AngularHtmlListCommand extends BaseCommand {
+class AngularHtmlListCommand extends CvCommand {
 
-  use BootTrait;
   use StructuredOutputTrait;
 
   /**
@@ -24,7 +22,7 @@ class AngularHtmlListCommand extends BaseCommand {
       ->setName('ang:html:list')
       ->setAliases(array())
       ->setDescription('List Angular HTML files')
-      ->configureOutputOptions(['tabular' => TRUE, 'fallback' => 'list', 'defaultColumns' => 'file'])
+      ->configureOutputOptions(['tabular' => TRUE, 'fallback' => 'list', 'defaultColumns' => 'file', 'shortcuts' => TRUE])
       ->addArgument('filter', InputArgument::OPTIONAL,
         'Filter by filename. For regex filtering, use semicolon delimiter.')
       ->setHelp('List Angular HTML files
@@ -34,18 +32,14 @@ Examples:
   cv ang:html:list crmUi/*
   cv ang:html:list \';(tabset|wizard)\\.html;\'
 ');
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
-    $this->boot($input, $output);
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     if (!$input->getOption('user')) {
       $output->getErrorOutput()->writeln("<comment>For a full list, try passing --user=[username].</comment>");
     }
 
-    $columns = explode(',', $input->getOption('columns'));
-    $records = $this->sort($this->find($input), $columns);
-    $this->sendTable($input, $output, $records, $columns);
+    $this->sendStandardTable($this->find($input));
     return 0;
   }
 
@@ -78,23 +72,6 @@ Examples:
         }
       }
       return TRUE;
-    });
-
-    return $rows;
-  }
-
-  protected function sort($rows, $orderByColumns) {
-    usort($rows, function ($a, $b) use ($orderByColumns) {
-      foreach ($orderByColumns as $col) {
-        if ($a[$col] < $b[$col]) {
-          return -1;
-        }
-        if ($a[$col] > $b[$col]) {
-          return 1;
-        }
-      }
-
-      return 0;
     });
 
     return $rows;

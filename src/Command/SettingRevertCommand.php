@@ -1,7 +1,7 @@
 <?php
 namespace Civi\Cv\Command;
 
-use Civi\Cv\Util\BootTrait;
+use Civi\Core\SettingsBag;
 use Civi\Cv\Util\SettingTrait;
 use Civi\Cv\Util\StructuredOutputTrait;
 use Symfony\Component\Console\Input\InputArgument;
@@ -9,9 +9,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class SettingRevertCommand extends BaseCommand {
+class SettingRevertCommand extends CvCommand {
 
-  use BootTrait;
   use StructuredOutputTrait;
   use SettingTrait;
 
@@ -28,7 +27,7 @@ class SettingRevertCommand extends BaseCommand {
       ->addOption('in', NULL, InputOption::VALUE_REQUIRED, 'Input format (args,json)', 'args')
       ->configureOutputOptions([
         'tabular' => TRUE,
-        'shortcuts' => ['table', 'list'],
+        'shortcuts' => TRUE,
         'fallback' => 'table',
         'availColumns' => 'scope,key,value,default,explicit,mandatory,layer',
         'defaultColumns' => 'scope,key,value,layer',
@@ -59,11 +58,10 @@ class SettingRevertCommand extends BaseCommand {
     {$C}cv setting:revert --scope={$_C}{$I}contact{$_I}{$C} --user={$_C}{$I}admin{$_I}     (admin's contact)
     {$C}cv setting:revert --scope={$_C}{$I}contact:201{$_I}              (contact #201)
 ");
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
-    $this->boot($input, $output);
+  protected function execute(InputInterface $input, OutputInterface $output): int {
+    $hasExplicit = method_exists(SettingsBag::class, 'hasExplicit') /* v6.4 */ ? 'hasExplicit' : 'hasExplict';
     $errorOutput = is_callable([$output, 'getErrorOutput']) ? $output->getErrorOutput() : $output;
 
     $filter = $this->createSettingFilter($input->getArgument('name'));
@@ -78,7 +76,7 @@ class SettingRevertCommand extends BaseCommand {
           continue;
         }
 
-        if (!$settingBag->hasExplict($settingKey)) {
+        if (!$settingBag->$hasExplicit($settingKey)) {
           $errorOutput->writeln("<comment>Skip \"$settingKey\" (no value found)</comment>");
         }
         elseif ($input->getOption('dry-run')) {
@@ -97,7 +95,7 @@ class SettingRevertCommand extends BaseCommand {
           'default' => $decode($settingBag->getDefault($settingKey)),
           'explicit' => $decode($settingBag->getExplicit($settingKey)),
           'mandatory' => $decode($settingBag->getMandatory($settingKey)),
-          'layer' => $settingBag->getMandatory($settingKey) !== NULL ? 'mandatory' : ($settingBag->hasExplict($settingKey) ? 'explicit' : 'default'),
+          'layer' => $settingBag->getMandatory($settingKey) !== NULL ? 'mandatory' : ($settingBag->$hasExplicit($settingKey) ? 'explicit' : 'default'),
         ];
         $result[] = $row;
       }

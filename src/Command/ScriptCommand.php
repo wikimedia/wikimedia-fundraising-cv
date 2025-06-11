@@ -2,14 +2,11 @@
 namespace Civi\Cv\Command;
 
 use Civi\Cv\Util\Filesystem;
-use Civi\Cv\Util\BootTrait;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class ScriptCommand extends BaseCommand {
-
-  use BootTrait;
+class ScriptCommand extends CvCommand {
 
   protected function configure() {
     $this
@@ -18,10 +15,13 @@ class ScriptCommand extends BaseCommand {
       ->setDescription('Execute a PHP script')
       ->addArgument('script', InputArgument::REQUIRED)
       ->addArgument('scriptArguments', InputArgument::IS_ARRAY, 'Optional arguments to pass to the script as $argv');
-    $this->configureBootOptions();
   }
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
+  public function getBootOptions(): array {
+    return ['auto' => FALSE] + parent::getBootOptions();
+  }
+
+  protected function execute(InputInterface $input, OutputInterface $output): int {
     $fs = new Filesystem();
     $origScript = $fs->toAbsolutePath($input->getArgument('script'));
     $scriptArguments = $input->getArgument('scriptArguments');

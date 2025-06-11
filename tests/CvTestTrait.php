@@ -13,8 +13,8 @@ trait CvTestTrait {
    * @return \Symfony\Component\Process\Process
    */
   protected function cv($command) {
-    $cvPath = dirname(__DIR__) . '/bin/cv';
-    $process = new \Symfony\Component\Process\Process("{$cvPath} $command");
+    $cvPath = $this->getCvPath();
+    $process = \Symfony\Component\Process\Process::fromShellCommandline("{$cvPath} $command");
     return $process;
   }
 
@@ -49,6 +49,14 @@ trait CvTestTrait {
   protected function cvJsonOk($cmd) {
     $p = Process::runOk($this->cv($cmd));
     return json_decode($p->getOutput(), 1);
+  }
+
+  private function getCvPath(): string {
+    return getenv('CV_TEST_BINARY') ?: dirname(__DIR__) . '/bin/cv';
+  }
+
+  protected function isCvPharTest(): bool {
+    return (bool) preg_match(';\.phar$;', $this->getCvPath());
   }
 
 }

@@ -1,6 +1,7 @@
 <?php
 namespace Civi\Cv\Util;
 
+use Civi\Cv\Exception\QueueTaskException;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -34,12 +35,12 @@ class ConsoleQueueRunner {
   /**
    * ConsoleQueueRunner constructor.
    *
-   * @param \Symfony\Component\Console\Style\SymfonyStyle $io
+   * @param \Symfony\Component\Console\Style\StyleInterface $io
    * @param \CRM_Queue_Queue $queue
    * @param bool $dryRun
    * @param bool $step
    */
-  public function __construct(\Symfony\Component\Console\Style\SymfonyStyle $io, \CRM_Queue_Queue $queue, $dryRun = FALSE, $step = FALSE) {
+  public function __construct(\Symfony\Component\Console\Style\StyleInterface $io, \CRM_Queue_Queue $queue, $dryRun = FALSE, $step = FALSE) {
     $this->io = $io;
     $this->queue = $queue;
     $this->dryRun = $dryRun;
@@ -88,12 +89,12 @@ class ConsoleQueueRunner {
         try {
           $isOK = $task->run($taskCtx);
           if (!$isOK) {
-            throw new \Exception('Task returned false');
+            throw new QueueTaskException('Task returned false');
           }
         }
-        catch (\Exception $e) {
+        catch (\Throwable $e) {
           // WISHLIST: For interactive mode, perhaps allow retry/skip?
-          $io->writeln(sprintf("<error>Error executing task \"%s\"</error>", $task->title));
+          $io->writeln(sprintf("<error>Error executing task: %s</error>", $task->title));
           throw $e;
         }
       }
@@ -107,10 +108,9 @@ class ConsoleQueueRunner {
   }
 
   protected static function formatTaskCallback(\CRM_Queue_Task $task) {
-    return sprintf("%s(%s)",
-      implode('::', (array) $task->callback),
-      implode(',', $task->arguments)
-    );
+    $cb = implode('::', (array) $task->callback);
+    $args = json_encode($task->arguments, JSON_UNESCAPED_SLASHES);
+    return sprintf("%s(%s)", $cb, substr($args, 1, -1));
   }
 
 }

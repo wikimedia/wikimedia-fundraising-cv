@@ -54,6 +54,7 @@ class Application extends BaseApplication {
     $commands[] = new \Civi\Cv\Command\AngularModuleListCommand();
     $commands[] = new \Civi\Cv\Command\AngularHtmlListCommand();
     $commands[] = new \Civi\Cv\Command\AngularHtmlShowCommand();
+    $commands[] = new \Civi\Cv\Command\CronCommand();
     $commands[] = new \Civi\Cv\Command\DebugContainerCommand();
     $commands[] = new \Civi\Cv\Command\DebugDispatcherCommand();
     $commands[] = new \Civi\Cv\Command\ExtensionDownloadCommand();
@@ -64,6 +65,7 @@ class Application extends BaseApplication {
     $commands[] = new \Civi\Cv\Command\ExtensionUpgradeDbCommand();
     $commands[] = new \Civi\Cv\Command\FillCommand();
     $commands[] = new \Civi\Cv\Command\FlushCommand();
+    $commands[] = new \Civi\Cv\Command\PasswordResetCommand();
     $commands[] = new \Civi\Cv\Command\PathCommand();
     $commands[] = new \Civi\Cv\Command\PipeCommand();
     $commands[] = new \Civi\Cv\Command\SettingSetCommand();

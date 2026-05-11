@@ -82,7 +82,7 @@ class SiteConfigReader {
     $paths = is_callable(array('Civi', 'paths')) ? \Civi::paths() : NULL;
     $log = \CRM_Core_Error::createDebugLogger();
     $data = array(
-      'CMS_DB_DSN' => CIVICRM_UF_DSN,
+      'CMS_DB_DSN' => defined('CIVICRM_UF_DSN') ? CIVICRM_UF_DSN : NULL,
       'CMS_VERSION' => \CRM_Core_Config::singleton()->userSystem->getVersion(),
       'CIVI_DB_DSN' => CIVICRM_DSN,
       'CIVI_SITE_KEY' => CIVICRM_SITE_KEY,
